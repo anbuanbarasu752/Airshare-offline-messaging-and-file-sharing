@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AIRSHARE PRO</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial;
+    background:#121212;
+    color:white;
+}
+#loginBox{
+    text-align:center;
+    margin-top:120px;
+}
+#chatPage{
+    display:none;
+}
+#chat{
+    height:400px;
+    overflow-y:scroll;
+    padding:10px;
+    background:#1e1e1e;
+}
+.message{
+    margin:8px 0;
+    padding:10px;
+    border-radius:8px;
+    background:#2a2a2a;
+}
+.time{
+    font-size:10px;
+    color:gray;
+}
+input,button{
+    padding:8px;
+    margin:5px;
+}
+button{
+    background:#007acc;
+    color:white;
+    border:none;
+    border-radius:5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="loginBox">
+<h2>AIRSHARE Login</h2>
+<input id="username" placeholder="Enter name">
+<button onclick="login()">Enter Chat</button>
+</div>
+
+<div id="chatPage">
+<h2 style="text-align:center;">AIRSHARE 🚀</h2>
+
+<div id="chat"></div>
+
+<input type="file" id="fileInput">
+<br>
+<input id="msg" placeholder="Type message...">
+<button onclick="sendMsg()">Send</button>
+</div>
+
+<script>
+var socket = io();
+var currentUser="";
+
+function login(){
+    currentUser=document.getElementById("username").value;
+    if(currentUser!=""){
+        document.getElementById("loginBox").style.display="none";
+        document.getElementById("chatPage").style.display="block";
+        socket.emit("join", currentUser);
+    }
+}
+
+socket.on("message", function(data){
+    var chat=document.getElementById("chat");
+
+    var div=document.createElement("div");
+    div.className="message";
+
+    div.innerHTML="<b>"+data.user+"</b>: "+data.msg+
+    "<div class='time'>"+data.time+"</div>";
+
+    chat.appendChild(div);
+    chat.scrollTop=chat.scrollHeight;
+});
+
+function sendMsg(){
+    var msg=document.getElementById("msg").value;
+    var file=document.getElementById("fileInput").files[0];
+
+    if(file){
+
+        var formData = new FormData();
+        formData.append("file", file);
+
+        fetch("/upload",{
+            method:"POST",
+            body:formData
+        })
+        .then(res=>res.json())
+        .then(data=>{
+
+            var content="";
+
+            if(file.type.startsWith("image/")){
+                content = "<img src='"+data.url+"' width='200'>";
+            }
+            else if(file.type.startsWith("video/")){
+                content = `
+                    <video width="300" controls>
+                        <source src="${data.url}" type="${file.type}">
+                        Your browser does not support video.
+                    </video>
+                `;
+            }
+            else{
+                content = "📄 <a href='"+data.url+"' target='_blank'>"+file.name+"</a>";
+            }
+
+            socket.emit("message",{
+                user:currentUser,
+                msg:content
+            });
+
+        });
+    }
+    else if(msg!=""){
+        socket.emit("message",{user:currentUser,msg:msg});
+    }
+
+    document.getElementById("msg").value="";
+    document.getElementById("fileInput").value="";
+}
+</script>
+
+</body>
+</html>
